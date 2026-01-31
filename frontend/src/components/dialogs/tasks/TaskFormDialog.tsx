@@ -4,7 +4,8 @@ import NiceModal, { useModal } from '@ebay/nice-modal-react';
 import { defineModal } from '@/lib/modals';
 import { useDropzone } from 'react-dropzone';
 import { useForm, useStore } from '@tanstack/react-form';
-import { Image as ImageIcon } from 'lucide-react';
+import { Image as ImageIcon, FolderOpen } from 'lucide-react';
+import { FolderPickerDialog } from '@/components/dialogs/shared/FolderPickerDialog';
 import {
   Dialog,
   DialogContent,
@@ -80,6 +81,7 @@ type TaskFormValues = {
   status: TaskStatus;
   executorProfileId: ExecutorProfileId | null;
   repoBranches: RepoBranch[];
+  workingDir: string; // Working directory override (if it's a git repo, branch comes from there)
   autoStart: boolean;
 };
 
@@ -135,6 +137,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
           status: props.task.status,
           executorProfileId: baseProfile,
           repoBranches: defaultRepoBranches,
+          workingDir: '',
           autoStart: false,
         };
 
@@ -145,6 +148,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
           status: 'todo',
           executorProfileId: baseProfile,
           repoBranches: defaultRepoBranches,
+          workingDir: '',
           autoStart: true,
         };
 
@@ -157,6 +161,7 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
           status: 'todo',
           executorProfileId: baseProfile,
           repoBranches: defaultRepoBranches,
+          workingDir: '',
           autoStart: true,
         };
     }
@@ -202,6 +207,8 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
             task,
             executor_profile_id: value.executorProfileId!,
             repos,
+            branch: null,
+            agent_working_dir: value.workingDir.trim() || null,
           },
           { onSuccess: () => modal.remove() }
         );
@@ -560,6 +567,64 @@ const TaskFormDialogImpl = NiceModal.create<TaskFormDialogProps>((props) => {
                                       : t('createAttemptDialog.selectBranch')
                                   }
                                 />
+                              </div>
+                            );
+                          }}
+                        </form.Field>
+                      )}
+                      {isSingleRepo && (
+                        <form.Field name="workingDir">
+                          {(field) => {
+                            const handleBrowse = async () => {
+                              const selectedPath =
+                                await FolderPickerDialog.show({
+                                  value: field.state.value || '',
+                                  title: t(
+                                    'taskFormDialog.workingDirDialogTitle'
+                                  ),
+                                  description: t(
+                                    'taskFormDialog.workingDirDialogDescription'
+                                  ),
+                                });
+                              if (selectedPath) {
+                                field.handleChange(selectedPath);
+                              }
+                            };
+                            return (
+                              <div
+                                className={cn(
+                                  'flex-1 min-w-0',
+                                  isSubmitting &&
+                                    'opacity-50 pointer-events-none'
+                                )}
+                              >
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleBrowse}
+                                  className="w-full justify-between text-xs"
+                                >
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <FolderOpen className="h-3 w-3 flex-shrink-0" />
+                                    <span className="truncate">
+                                      {field.state.value
+                                        ? field.state.value.split('/').pop()
+                                        : t('taskFormDialog.browseWorkingDir')}
+                                    </span>
+                                  </div>
+                                  {field.state.value && (
+                                    <span
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        field.handleChange('');
+                                      }}
+                                      className="text-muted-foreground hover:text-foreground"
+                                    >
+                                      ×
+                                    </span>
+                                  )}
+                                </Button>
                               </div>
                             );
                           }}

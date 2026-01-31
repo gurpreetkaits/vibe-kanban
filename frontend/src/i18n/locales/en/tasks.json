@@ -632,7 +632,10 @@
       "description": "You have unsaved changes. Are you sure you want to discard them?",
       "continueEditing": "Continue Editing",
       "discardChanges": "Discard Changes"
-    }
+    },
+    "browseWorkingDir": "Working Dir",
+    "workingDirDialogTitle": "Select Working Directory",
+    "workingDirDialogDescription": "Choose a directory to use as the working directory for this task. If it's a git repo, the branch will be determined from there."
   },
   "terminal": {
     "selectWorkspace": "Select a workspace to open terminal"

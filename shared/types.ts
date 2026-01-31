@@ -232,7 +232,15 @@ export type OpenEditorRequest = { editor_type: string | null, file_path: string 
 
 export type OpenEditorResponse = { url: string | null, };
 
-export type CreateAndStartTaskRequest = { task: CreateTask, executor_profile_id: ExecutorProfileId, repos: Array<WorkspaceRepoInput>, };
+export type CreateAndStartTaskRequest = { task: CreateTask, executor_profile_id: ExecutorProfileId, repos: Array<WorkspaceRepoInput>, 
+/**
+ * Optional workspace branch (existing branch). If not provided, auto-generates a random branch.
+ */
+branch: string | null, 
+/**
+ * Optional working directory override. If not provided, uses repo's default_working_dir.
+ */
+agent_working_dir: string | null, };
 
 export type CreatePrApiRequest = { title: string, body: string | null, target_branch: string | null, draft: boolean | null, repo_id: string, auto_generate_description: boolean, };
 
@@ -240,7 +248,15 @@ export type ImageResponse = { id: string, file_path: string, original_name: stri
 
 export type ImageMetadata = { exists: boolean, file_name: string | null, path: string | null, size_bytes: bigint | null, format: string | null, proxy_url: string | null, };
 
-export type CreateTaskAttemptBody = { task_id: string, executor_profile_id: ExecutorProfileId, repos: Array<WorkspaceRepoInput>, };
+export type CreateTaskAttemptBody = { task_id: string, executor_profile_id: ExecutorProfileId, repos: Array<WorkspaceRepoInput>, 
+/**
+ * Optional workspace branch (existing branch). If not provided, auto-generates a random branch.
+ */
+branch: string | null, 
+/**
+ * Optional working directory override. If not provided, uses repo's default_working_dir.
+ */
+agent_working_dir: string | null, };
 
 export type WorkspaceRepoInput = { repo_id: string, target_branch: string, };
 

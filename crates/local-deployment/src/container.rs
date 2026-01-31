@@ -971,6 +971,33 @@ impl ContainerService for LocalContainerService {
             .await?
             .ok_or(sqlx::Error::RowNotFound)?;
 
+        let repositories =
+            WorkspaceRepo::find_repos_for_workspace(&self.db.pool, workspace.id).await?;
+
+        if let Some(ref working_dir) = workspace.agent_working_dir {
+            let working_path = PathBuf::from(working_dir);
+            if working_path.is_absolute() && working_path.exists() && working_path.is_dir() {
+                let git_dir = working_path.join(".git");
+                if git_dir.exists() {
+                    tracing::info!(
+                        "Using existing worktree directory: {}",
+                        working_path.display()
+                    );
+
+                    self.copy_files_and_images(&working_path, workspace).await?;
+                    Self::create_workspace_config_files(&working_path, &repositories).await?;
+                    Workspace::update_container_ref(
+                        &self.db.pool,
+                        workspace.id,
+                        &working_path.to_string_lossy(),
+                    )
+                    .await?;
+
+                    return Ok(working_path.to_string_lossy().to_string());
+                }
+            }
+        }
+
         let workspace_dir_name =
             LocalContainerService::dir_name_from_workspace(&workspace.id, &task.title);
         let workspace_dir = WorkspaceManager::get_workspace_base_dir().join(&workspace_dir_name);
@@ -982,9 +1009,6 @@ impl ContainerService for LocalContainerService {
                 "Workspace has no repositories configured"
             )));
         }
-
-        let repositories =
-            WorkspaceRepo::find_repos_for_workspace(&self.db.pool, workspace.id).await?;
 
         let target_branches: HashMap<_, _> = workspace_repos
             .iter()

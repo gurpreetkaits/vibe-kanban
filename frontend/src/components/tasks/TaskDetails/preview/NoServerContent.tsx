@@ -73,6 +73,8 @@ export function NoServerContent({
       },
       executor_profile_id: config.executor_profile,
       repos,
+      branch: null,
+      agent_working_dir: null,
     });
   };
 

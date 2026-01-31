@@ -155,6 +155,10 @@ pub struct CreateTaskAttemptBody {
     pub task_id: Uuid,
     pub executor_profile_id: ExecutorProfileId,
     pub repos: Vec<WorkspaceRepoInput>,
+    /// Optional workspace branch (existing branch). If not provided, auto-generates a random branch.
+    pub branch: Option<String>,
+    /// Optional working directory override. If not provided, uses repo's default_working_dir.
+    pub agent_working_dir: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ts_rs::TS)]
@@ -189,29 +193,61 @@ pub async fn create_task_attempt(
         .await?
         .ok_or(SqlxError::RowNotFound)?;
 
-    // Compute agent_working_dir based on repo count:
-    // - Single repo: join repo name with default_working_dir (if set), or just repo name
-    // - Multiple repos: use None (agent runs in workspace root)
-    let agent_working_dir = if payload.repos.len() == 1 {
-        let repo = Repo::find_by_id(pool, payload.repos[0].repo_id)
-            .await?
-            .ok_or(RepoError::NotFound)?;
-        match repo.default_working_dir {
-            Some(subdir) => {
-                let path = PathBuf::from(&repo.name).join(&subdir);
-                Some(path.to_string_lossy().to_string())
+    let attempt_id = Uuid::new_v4();
+
+    let (git_branch_name, agent_working_dir) = if let Some(working_dir) = &payload.agent_working_dir
+    {
+        let working_path = PathBuf::from(working_dir);
+        match deployment.git().get_current_branch(&working_path) {
+            Ok(branch) => {
+                tracing::info!(
+                    "Using existing worktree at {} with branch {}",
+                    working_dir,
+                    branch
+                );
+                (branch, Some(working_dir.clone()))
             }
-            None => Some(repo.name),
+            Err(_) => {
+                let branch = match &payload.branch {
+                    Some(b) => b.clone(),
+                    None => {
+                        deployment
+                            .container()
+                            .git_branch_from_workspace(&attempt_id, &task.title)
+                            .await
+                    }
+                };
+                (branch, Some(working_dir.clone()))
+            }
         }
     } else {
-        None
-    };
+        let branch = match &payload.branch {
+            Some(b) => b.clone(),
+            None => {
+                deployment
+                    .container()
+                    .git_branch_from_workspace(&attempt_id, &task.title)
+                    .await
+            }
+        };
 
-    let attempt_id = Uuid::new_v4();
-    let git_branch_name = deployment
-        .container()
-        .git_branch_from_workspace(&attempt_id, &task.title)
-        .await;
+        let working_dir = if payload.repos.len() == 1 {
+            let repo = Repo::find_by_id(pool, payload.repos[0].repo_id)
+                .await?
+                .ok_or(RepoError::NotFound)?;
+            match repo.default_working_dir {
+                Some(subdir) => {
+                    let path = PathBuf::from(&repo.name).join(&subdir);
+                    Some(path.to_string_lossy().to_string())
+                }
+                None => Some(repo.name),
+            }
+        } else {
+            None
+        };
+
+        (branch, working_dir)
+    };
 
     let workspace = Workspace::create(
         pool,

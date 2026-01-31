@@ -29,6 +29,8 @@ export function useAttemptCreation({
         task_id: taskId,
         executor_profile_id: profile,
         repos,
+        branch: null,
+        agent_working_dir: null,
       }),
     onSuccess: (newAttempt: Workspace) => {
       queryClient.setQueryData(
